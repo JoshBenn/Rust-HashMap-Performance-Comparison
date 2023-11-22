@@ -29,9 +29,9 @@ fn collision_add_list(c: &mut Criterion) {
                 map.insert(i % 5, i);
             }
         });
-
-        group.finish();
     });
+
+    group.finish();
 }
 
 fn collision_add_vec(c: &mut Criterion) {
@@ -63,7 +63,7 @@ struct CustomListMap<K, V> {
 
 impl<K, V> CustomListMap<K, V>
 where
-    K: Hash + Eq,
+    K: Hash + Eq + Clone,
     V: Clone,
 {
     fn new(num_buckets: usize) -> Self {
@@ -105,13 +105,10 @@ where
         let index = self.hash(key);
         let bucket = &mut self.buckets[index];
 
-        let mut current = 0;
-        while current < bucket.len() {
-            if bucket[current].key == *key {
-                bucket.remove(current);
-                return;
-            } else {
-                current += 1;
+        let mut temp = LinkedList::new();
+        while let Some(entry) = bucket.pop_front() {
+            if entry.key != *key {
+                temp.push_back(entry);
             }
         }
     }
