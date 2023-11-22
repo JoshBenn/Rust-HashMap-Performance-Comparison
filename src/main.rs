@@ -1,8 +1,14 @@
-use std::collections::{
-    hash_map::DefaultHasher,
-    LinkedList,
+use std::{
+    vec::Vec,
+    hash::{
+        Hash,
+        Hasher,
+    },
+    collections::{
+        LinkedList,
+        hash_map::DefaultHasher,
+    }
 };
-use std::hash::{Hash, Hasher};
 use criterion::{criterion_group, criterion_main, Criterion};
 
 /*fn main() {
@@ -35,76 +41,76 @@ criterion_group!(
 
 criterion_main!(collision_add_benchmark);
 
-
+struct Entry<K, V> {
+    key: K,
+    value: V,
+}
 
 struct CustomListMap<K, V> {
-    buckets: Vec<LinkedList<(K, V)>>,
-    size: usize,
-    capacity: usize,
+    buckets: Vec<LinkedList<Entry<K, V>>>,
+    num_buckets: usize,
 }
 
 impl<K, V> CustomListMap<K, V>
 where
-    K: Eq + std::hash::Hash,
+    K: Hash + Eq,
+    V: Clone,
 {
-    fn new(capacity: usize) -> Self {
-        let mut buckets = Vec::with_capacity(capacity);
-        for _ in 0..capacity {
-            buckets.push(LinkedList::new());
-        }
-        CustomListMap { buckets, size: 0, capacity, }
+    fn new(num_buckets: usize) -> Self {
+        let buckets = vec![LinkedList::new(); num_buckets];
+        CustomListMap { buckets, num_buckets }
+    }
+
+    fn hash(&self, key: &K) -> usize {
+        let mut hasher = DefaultHasher::new();
+        key.hash(&mut hasher);
+        return (hasher.finish() % self.num_buckets as u64) as usize;
     }
 
     fn insert(&mut self, key: K, value: V) {
-        let hash = self.hash(&key);
-        let index = hash % self.capacity;
-        self.buckets[index].push_back((key, value));
-        self.size += 1;
-    }
+        let index = self.hash(&key);
+        let bucket = &mut self.buckets[index];
 
-    fn get(&self, key: &K) -> Option<&V> {
-        let hash = self.hash(&key);
-        let index = hash % self.capacity;
-        for(k, v) in &self.buckets[index] {
-            if k == key {
-                return Some(v);
+        for entry in bucket.iter_mut() {
+            if entry.key == key {
+                entry.value = value.clone();
+                return;
             }
         }
-        None
-    }    
+        bucket.push_back(Entry { key, value });
+    }
 
-    fn remove(&mut self, key: &K) -> Option<V> {
-        let hash = self.hash(&key);
-        let index = hash & self.capacity;
-        if let Some(pos) = self.buckets[index].iter().position(|(k, _)| k == key) {
-            self.size -= 1;
-            return Some(self.buckets[index].remove(pos).1);
+    fn get(&self, key: &K) -> Option<V> {
+        let index = self.hash(key);
+        self.buckets[index]
+            .iter()
+            .find(|entry| &entry.key == key)
+            .map(|entry| entry.value.clone())
+    }
+
+    fn remove(&mut self, key: &K) {
+        let index = self.hash(key);
+        let bucket = &mut self.buckets[index];
+        let position = bucket.iter().position(|entry| &entry.key == key);
+
+        if let Some(pos) = position {
+            bucket.remove(pos);
         }
-        None
-        
-    }
-    
-    fn hash(&self, key: &K) -> usize {
-        let mut hasher = DefaultHasher::new();
-        key.hash(hasher) as usize;
-        hasher.finish() as usize
     }
 
+    
 }
 
 struct CustomVecMap<K, V> {
-    buckets: Vec<Vec<(K, V)>>,
-    size: usize,
-    capacity: usize, 
+    buckets: Vec<Vec<Entry<K, V>>>,
+    num_buckets: usize, 
 }
 
-impl<K, V> CustomVecMap<K, V> {
-    fn new(capacity: usize) -> Self {
-        let mut buckets = Vec::with_capacity(capacity);
-        for _ in 0..capacity {
-            buckets.push(Vec::new());
-        }
-        CustomVecMap { buckets, size: 0, capacity, }
-    }   
+impl<K, V> CustomVecMap<K, V> 
+where
+    K: Hash + Eq,
+    V: Clone,
+{
+    //stuff
 }
 
